@@ -6,7 +6,9 @@ from .serializers import (
     UserSerializer
 )
 from .models import (
-    User
+    User,
+    ModulesApplication,
+    GroupsModuls
 )
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -14,9 +16,18 @@ from rest_framework.permissions import IsAuthenticated
 from itertools import chain
 from rest_framework.views import APIView
 from rest_framework_jwt.settings import api_settings
-import jwt
-from django.contrib.auth import authenticate
+from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.serializers import AuthTokenSerializer
+from rest_framework.authtoken.views import ObtainAuthToken
+from django.contrib.auth import authenticate
+from rest_framework.authtoken.models import Token
+from django.core.exceptions import ObjectDoesNotExist
+from django.contrib.auth import (
+    login as django_login,
+    logout as django_logout
+)
+from django.conf import settings
+from django.db.models import F
 
 class ListUser(RegisterView):
 
@@ -55,26 +66,55 @@ class LoginUser(APIView):
     permission_classes = [AllowAny, ]
 
     def post(self, request):    
-        serializer = LoginSerializer(
-                data=request.data
-            )
+        serializer = AuthTokenSerializer(
+             data=request.data
+        )
         if serializer.is_valid():
-            jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
-            jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
+            token, _ = Token.objects.get_or_create(
+                user=serializer.validated_data['user']
+            )
             try:   
                 user = User.objects.get(
                             username=str(request.data['username']).lower()
                         )
                 userSerializer = UserSerializer(user).data
+
+                userSerializer['token'] = token.key
+                
+                modules = list(GroupsModuls.objects.filter(
+                    id_group=user.id_group
+                ).values(
+                        name=F('id_module__name'),
+                        path=F('id_module__path'),
+                        icon=F('id_module__icon'),
+                        nickname=F('id_module__nickname')
+                    )
+                )
+                userSerializer['modules'] = modules
+                return Response(userSerializer, status=200)
+            
             except:
                 return Response(status=404)
-            auth = AuthTokenSerializer(data=request.data)
-            if auth.is_valid():
-                payload = jwt_payload_handler(user)
-                userSerializer['token'] = jwt_encode_handler(payload)
-                return Response(userSerializer, status=200)
-            else:
-                return Response(auth.errors, status=400)
-            return Response(status=201)
+            
         else:
             return Response(serializer.errors, status=400)
+
+
+class LogoutView(APIView):
+
+
+
+    def delete(self, request, *args, **kwargs):
+        return self.logout(request)
+
+    def logout(self, request):
+        try:
+            request.user.auth_token.delete()
+        except (AttributeError, ObjectDoesNotExist):
+            pass
+        if getattr(settings, 'REST_SESSION_LOGIN', True):
+            django_logout(request)
+
+        response = Response({"detail": "Successfully logged out."},
+                            status=200)
+        return response

@@ -21,5 +21,5 @@ from django.conf.urls import (
 )
 
 urlpatterns = [
-   url(r'^', include('modules.users.urls')),
+   url(r'^', include('modules.users.urls'))
 ]

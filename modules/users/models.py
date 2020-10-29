@@ -134,3 +134,38 @@ class User(AbstractUser):
 
 	class Meta(AbstractUser.Meta):
 		swappable = 'AUTH_USER_MODEL'
+
+
+class ModulesApplication(models.Model):
+
+    name = models.CharField(
+            max_length=200,
+            blank=False,
+            null=False
+        )
+    icon = models.CharField(
+            max_length=200,
+            blank=False,
+            null=False
+        )
+    path = models.CharField(
+            max_length=200,
+            blank=False,
+            null=False
+        )
+    nickname = models.CharField(
+            max_length=200,
+            blank=False,
+            null=False
+        )
+    
+    class Meta:
+        db_table = "modules_aplication"
+
+class GroupsModuls(models.Model):
+
+    id_group = models.ForeignKey(Group, on_delete=models.CASCADE)
+    id_module = models.ForeignKey(ModulesApplication, on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = "groups_modules"
